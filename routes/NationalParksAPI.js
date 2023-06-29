@@ -1,15 +1,8 @@
 const express = require('express');
-var proxy = require('express-http-proxy');
+const proxy = require('express-http-proxy');
 const router = express.Router();
 const constants = require('../constants');
 const HttpError = require('../error/HttpError');
-
-
-// router.use((req, res, next) => {
-//     console.log('Request start time:', Date.now());
-//     next();
-//     console.log('Request end time: ', Date.now());
-// });
 
 router.get('/parks', (req, res) => {
     const params = req.params;
@@ -20,26 +13,36 @@ router.get('/parks', (req, res) => {
     res.send('NationalParksAPI / route');
 });
 
-const npProxy = proxy(constants.NationalParksAPIURL, {
-    // want the part after npapi/...
-    // actually it looks like npapi gets consumed. The path after this point is just /parks
-    // so just validate query params
-    proxyReqPathResolver: (req) => proxyReqPathResolver(req)
-});
+const filters = {
+    proxyReqPathResolver: (req) => proxyReqPathResolver(req),
+    filter: (req, res) => filterFunction(req, res),
+    limit: '0mb',
+    proxyReqOptDecorator: (proxyReqOpts, srcReq) => proxyReqOptDecorator(proxyReqOpts, srcReq)
+};
+
+const npProxy = proxy(constants.NationalParksAPIHost, filters);
 
 function proxyReqPathResolver(req) {
     const validQueryParams = constants.ValidParams[req.path];
-    for(const property in req.query){
-        if(!validQueryParams.includes(property)){
+    for (const property in req.query) {
+        if (!validQueryParams.includes(property)) {
             throw new HttpError('Bad Request', 400);
         }
     }
-    return req.url;
+    return constants.NationalParksAPIBasePath + req.url;
+}
+
+function filterFunction(req, res) {
+    return req.method == 'GET';
+}
+
+function proxyReqOptDecorator(proxyReqOpts, srcReq) {
+    proxyReqOpts.headers['x-api-key'] = process.env.NP_X_API_KEY;
+    return proxyReqOpts;
 }
 
 if (process.env.NODE_ENV === 'test') {
-    exports.test = { proxyReqPathResolver };
+    exports.test = { proxyReqPathResolver, filterFunction, proxyReqOptDecorator, filters };
 }
 
 exports.npProxy = npProxy;
-exports.router = router;
