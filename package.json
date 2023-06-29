@@ -4,7 +4,8 @@
   "description": "Express JS router for NPComplete.",
   "main": "app.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "start": "NODE_ENV=dev node server"
   },
   "author": "",
   "license": "ISC",
